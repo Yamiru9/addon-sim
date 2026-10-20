@@ -28,7 +28,7 @@ const BLOCK_CB = cubic_bezier(.6, 0, .6, 1);
 
 /** How much technique XP survives after `recentPlays` repeats in 24h. */
 const mindblockFactor = (recentPlays: number): number =>
-	lerp(1, MIN_FACTOR, BLOCK_CB(Math.min(1, recentPlays / PLAYS_FOR_FULL_BLOCK)));
+        lerp(1, MIN_FACTOR, BLOCK_CB(Math.min(1, recentPlays / PLAYS_FOR_FULL_BLOCK)));
 
 const MINDBLOCK_SET = new Set<string>(MINDBLOCK_SKILLS as unknown as string[]);
 
@@ -37,65 +37,68 @@ const MINDBLOCK_SET = new Set<string>(MINDBLOCK_SKILLS as unknown as string[]);
  * the order and flooring of the server's `getServerXP`.
  */
 const adjustedXp = (
-	xp: Record<string, number>,
-	{ recentPlays = 0, medalMultiplier = 1 }: { recentPlays?: number; medalMultiplier?: number } = {},
+        xp: Record<string, number>,
+        { recentPlays = 0, medalMultiplier = 1 }: { recentPlays?: number; medalMultiplier?: number } = {},
 ): Record<string, number> => {
-	const block = mindblockFactor(recentPlays);
-	const out: Record<string, number> = {};
-	for (const [skill, value] of Object.entries(xp)) {
-		const blocked = MINDBLOCK_SET.has(skill) ? Math.floor(value * block) : value;
-		out[skill] = Math.floor(blocked * medalMultiplier);
-	}
-	return out;
+        const block = mindblockFactor(recentPlays);
+        const out: Record<string, number> = {};
+        for (const [skill, value] of Object.entries(xp)) {
+                const blocked = MINDBLOCK_SET.has(skill) ? Math.floor(value * block) : value;
+                out[skill] = Math.floor(blocked * medalMultiplier);
+        }
+        return out;
 };
 
 export type FarmTarget =
-	/** Rank by the sum across every skill. */
-	| { kind: 'total' }
-	/** Rank by one skill's XP alone. */
-	| { kind: 'skill'; skill: string }
-	/**
-	 * Rank by performance points.
-	 *
-	 * **Ranked by the pp itself, not by pp per second.** XP accumulates, so for
-	 * XP the useful question is a rate - how much per minute of play. pp does
-	 * not: only your best score on a map counts, and your total is a weighted
-	 * sum of your top plays, so playing a map twice as fast earns you nothing
-	 * extra. The question is simply which map your character would score most
-	 * on. Mindblock does not apply either, since it scales XP rather than score.
-	 */
-	| { kind: 'pp' };
+        /**
+         * Rank by the sum of the chosen skills' XP - every skill for a total, or
+         * any subset the player is actually farming. A subset is not a smaller
+         * total: skills an upgrade is about to make expensive can be left out, and
+         * the ranking then ignores the maps that only earn what is not needed.
+         */
+        | { kind: 'skills'; skills: readonly string[] }
+        /**
+         * Rank by performance points.
+         *
+         * **Ranked by the pp itself, not by pp per second.** XP accumulates, so for
+         * XP the useful question is a rate - how much per minute of play. pp does
+         * not: only your best score on a map counts, and your total is a weighted
+         * sum of your top plays, so playing a map twice as fast earns you nothing
+         * extra. The question is simply which map your character would score most
+         * on. Mindblock does not apply either, since it scales XP rather than score.
+         */
+        | { kind: 'pp' };
 
 type RankOptions = {
-	target: FarmTarget;
-	/** Repeats already made of each map in the last 24h, by beatmap id. */
-	recentPlays?: Map<number, number>;
-	/**
-	 * Seconds of overhead per play beyond the chart itself - result screen,
-	 * transition and song load. Autopilot pays this on every cycle, so it is
-	 * part of the true rate and it penalises short maps.
-	 */
-	overheadSec?: number;
-	/**
-	 * Drop maps the character usually cannot clear. Failing is probabilistic, so
-	 * this is a threshold on the share of simulated runs that died, not a flag:
-	 * a map that dies half the time is not a farm, but one that dies once in ten
-	 * attempts still is.
-	 */
-	maxFailRate?: number;
-	/** XP multiplier from the medals the character holds - see `medalMultiplier` in `engine/client.ts`. */
-	medalMultiplier?: number;
+        target: FarmTarget;
+        /** Repeats already made of each map in the last 24h, by beatmap id. */
+        recentPlays?: Map<number, number>;
+        /**
+         * Seconds of overhead per play beyond the chart itself - result screen,
+         * transition and song load. Autopilot pays this on every cycle, so it is
+         * part of the true rate and it penalises short maps.
+         */
+        overheadSec?: number;
+        /**
+         * Drop maps the character usually cannot clear. Failing is probabilistic, so
+         * this is a threshold on the share of simulated runs that died, not a flag:
+         * a map that dies half the time is not a farm, but one that dies once in ten
+         * attempts still is.
+         */
+        maxFailRate?: number;
+        /** XP multiplier from the medals the character holds - see `medalMultiplier` in `engine/client.ts`. */
+        medalMultiplier?: number;
 };
 
 export type RankedMap = SimResult & {
-	/** XP (or pp) toward the chosen target, after adjustments. */
-	value: number;
-	/** `value` per second of wall-clock play. Meaningless for a pp target. */
-	perSecond: number;
-	/** Full play cost including overhead. */
-	cycleSec: number;
-	/** Repeats assumed when computing `value`. */
-	recentPlays: number;
+        /** XP (or pp) toward the chosen target, after adjustments. */
+        value: number;
+        /** `value` per second of wall-clock play. Meaningless for a pp target. */
+        perSecond: number;
+        /** Full play cost including overhead. */
+        cycleSec: number;
+        /** Repeats assumed when computing `value`. */
+        recentPlays: number;
 };
 
 /**
@@ -105,87 +108,85 @@ export type RankedMap = SimResult & {
  * does not.
  */
 const rankingScore = (
-	map: Pick<RankedMap, 'value' | 'perSecond'>,
-	target: FarmTarget,
+        map: Pick<RankedMap, 'value' | 'perSecond'>,
+        target: FarmTarget,
 ): number => (target.kind === 'pp' ? map.value : map.perSecond);
 
 /** A row's identity: one difficulty at one rate. */
 export const rowKey = (map: Pick<SimResult, 'beatmapId' | 'rate'>): string =>
-	`${map.beatmapId}@${map.rate}`;
+        `${map.beatmapId}@${map.rate}`;
 
 const valueOf = (
-	xp: Record<string, number>,
-	target: FarmTarget,
-	result: { pp: number },
+        xp: Record<string, number>,
+        target: FarmTarget,
+        result: { pp: number },
 ): number => {
-	switch (target.kind) {
-		case 'total':
-			return Object.values(xp).reduce((sum, value) => sum + value, 0);
-		case 'skill':
-			return xp[target.skill] ?? 0;
-		case 'pp':
-			// Untouched by the XP adjustments - see the target's note.
-			return result.pp;
-	}
+        switch (target.kind) {
+                case 'skills':
+                        return target.skills.reduce((sum, skill) => sum + (xp[skill] ?? 0), 0);
+                case 'pp':
+                        // Untouched by the XP adjustments - see the target's note.
+                        return result.pp;
+        }
 };
 
 /** Score and sort simulated maps by XP per second, best first. */
 export const rankMaps = (results: readonly SimResult[], options: RankOptions): RankedMap[] => {
-	const {
-		target,
-		recentPlays = new Map<number, number>(),
-		overheadSec = 8,
-		maxFailRate = 0.5,
-		medalMultiplier = 1,
-	} = options;
+        const {
+                target,
+                recentPlays = new Map<number, number>(),
+                overheadSec = 8,
+                maxFailRate = 0.5,
+                medalMultiplier = 1,
+        } = options;
 
-	const ranked: RankedMap[] = [];
-	// Every rendered row comes through here, and the table keys rows by
-	// `rowKey` - so this is the one place that has to guarantee each difficulty
-	// appears once per rate, whatever the sweep produced.
-	const emitted = new Set<string>();
+        const ranked: RankedMap[] = [];
+        // Every rendered row comes through here, and the table keys rows by
+        // `rowKey` - so this is the one place that has to guarantee each difficulty
+        // appears once per rate, whatever the sweep produced.
+        const emitted = new Set<string>();
 
-	for (const result of results) {
-		if (result.failRate > maxFailRate) continue;
-		const key = rowKey(result);
-		if (emitted.has(key)) continue;
-		emitted.add(key);
+        for (const result of results) {
+                if (result.failRate > maxFailRate) continue;
+                const key = rowKey(result);
+                if (emitted.has(key)) continue;
+                emitted.add(key);
 
-		const repeats = recentPlays.get(result.beatmapId) ?? 0;
-		const xp = adjustedXp(result.xp, { recentPlays: repeats, medalMultiplier });
-		const value = valueOf(xp, target, result);
-		const cycleSec = result.durationSec + overheadSec;
+                const repeats = recentPlays.get(result.beatmapId) ?? 0;
+                const xp = adjustedXp(result.xp, { recentPlays: repeats, medalMultiplier });
+                const value = valueOf(xp, target, result);
+                const cycleSec = result.durationSec + overheadSec;
 
-		ranked.push({
-			...result,
-			value,
-			cycleSec,
-			perSecond: cycleSec > 0 ? value / cycleSec : 0,
-			recentPlays: repeats,
-		});
-	}
+                ranked.push({
+                        ...result,
+                        value,
+                        cycleSec,
+                        perSecond: cycleSec > 0 ? value / cycleSec : 0,
+                        recentPlays: repeats,
+                });
+        }
 
-	return ranked.sort((a, b) => rankingScore(b, target) - rankingScore(a, target));
+        return ranked.sort((a, b) => rankingScore(b, target) - rankingScore(a, target));
 };
 
 type RotationOptions = {
-	size?: number;
-	playsPerMap?: number;
-	target: FarmTarget;
-	overheadSec?: number;
-	/**
-	 * Allow at most one difficulty per beatmapset. Off by default - a taste
-	 * preference, not a farm consideration, since mindblock is per difficulty.
-	 */
-	oneMapPerSet?: boolean;
-	medalMultiplier?: number;
-	/** Whether entries are locked at their rates, so the rotation can mix them. */
-	mixRates?: boolean;
-	/**
-	 * Let the rotation hold a difficulty at several rates. Never for a pp target,
-	 * where only a difficulty's best score counts.
-	 */
-	severalRates?: boolean;
+        size?: number;
+        playsPerMap?: number;
+        target: FarmTarget;
+        overheadSec?: number;
+        /**
+         * Allow at most one difficulty per beatmapset. Off by default - a taste
+         * preference, not a farm consideration, since mindblock is per difficulty.
+         */
+        oneMapPerSet?: boolean;
+        medalMultiplier?: number;
+        /** Whether entries are locked at their rates, so the rotation can mix them. */
+        mixRates?: boolean;
+        /**
+         * Let the rotation hold a difficulty at several rates. Never for a pp target,
+         * where only a difficulty's best score counts.
+         */
+        severalRates?: boolean;
 };
 
 /**
@@ -212,88 +213,88 @@ type RotationOptions = {
  * {@link RankedMap.rate}.
  */
 export const buildRotation = (
-	ranked: readonly RankedMap[],
-	options: RotationOptions,
+        ranked: readonly RankedMap[],
+        options: RotationOptions,
 ): RankedMap[] => {
-	if (options.mixRates) return rotationAt(ranked, options);
+        if (options.mixRates) return rotationAt(ranked, options);
 
-	const byRate = new Map<number, RankedMap[]>();
-	for (const map of ranked) {
-		const maps = byRate.get(map.rate);
-		if (maps) maps.push(map);
-		else byRate.set(map.rate, [map]);
-	}
+        const byRate = new Map<number, RankedMap[]>();
+        for (const map of ranked) {
+                const maps = byRate.get(map.rate);
+                if (maps) maps.push(map);
+                else byRate.set(map.rate, [map]);
+        }
 
-	let best: RankedMap[] = [];
-	let bestTotal = -Infinity;
-	for (const maps of byRate.values()) {
-		const rotation = rotationAt(maps, options);
-		const total = rotation.reduce((sum, map) => sum + rankingScore(map, options.target), 0);
-		if (total > bestTotal) {
-			best = rotation;
-			bestTotal = total;
-		}
-	}
-	return best;
+        let best: RankedMap[] = [];
+        let bestTotal = -Infinity;
+        for (const maps of byRate.values()) {
+                const rotation = rotationAt(maps, options);
+                const total = rotation.reduce((sum, map) => sum + rankingScore(map, options.target), 0);
+                if (total > bestTotal) {
+                        best = rotation;
+                        bestTotal = total;
+                }
+        }
+        return best;
 };
 
 /** The greedy pick of {@link buildRotation}, among maps at one rate. */
 const rotationAt = (
-	ranked: readonly RankedMap[],
-	{
-		size = 5,
-		playsPerMap = 5,
-		target,
-		overheadSec = 8,
-		oneMapPerSet = false,
-		medalMultiplier = 1,
-		severalRates = false,
-	}: RotationOptions,
+        ranked: readonly RankedMap[],
+        {
+                size = 5,
+                playsPerMap = 5,
+                target,
+                overheadSec = 8,
+                oneMapPerSet = false,
+                medalMultiplier = 1,
+                severalRates = false,
+        }: RotationOptions,
 ): RankedMap[] => {
-	const chosen: RankedMap[] = [];
-	const usedSets = new Set<number>();
-	/** Rates already picked of each difficulty: mindblock counts them all as its plays. */
-	const picks = new Map<number, number>();
-	const oncePerDifficulty = !severalRates || target.kind === 'pp';
-	const remaining = [...ranked];
+        const chosen: RankedMap[] = [];
+        const usedSets = new Set<number>();
+        /** Rates already picked of each difficulty: mindblock counts them all as its plays. */
+        const picks = new Map<number, number>();
+        const oncePerDifficulty = !severalRates || target.kind === 'pp';
+        const remaining = [...ranked];
 
-	while (chosen.length < size && remaining.length) {
-		let bestIndex = -1;
-		let bestRate = -Infinity;
+        while (chosen.length < size && remaining.length) {
+                let bestIndex = -1;
+                let bestRate = -Infinity;
 
-		remaining.forEach((candidate, index) => {
-			if (oneMapPerSet && usedSets.has(candidate.setId)) return;
-			const picked = picks.get(candidate.beatmapId) ?? 0;
-			if (oncePerDifficulty && picked) return;
-			// Charge this candidate the repeats it would actually accumulate,
-			// its other rates' plays included. (Mindblock scales XP only, so for
-			// a pp target this is a no-op and the pick is simply the best-scoring
-			// map left.)
-			const xp = adjustedXp(candidate.xp, {
-				recentPlays: candidate.recentPlays + playsPerMap * (picked + 1), medalMultiplier,
-			});
-			const value = valueOf(xp, target, candidate);
-			const score = rankingScore(
-				{ value, perSecond: value / (candidate.durationSec + overheadSec) },
-				target,
-			);
-			if (score > bestRate) {
-				bestRate = score;
-				bestIndex = index;
-			}
-		});
+                remaining.forEach((candidate, index) => {
+                        if (oneMapPerSet && usedSets.has(candidate.setId)) return;
+                        const picked = picks.get(candidate.beatmapId) ?? 0;
+                        if (oncePerDifficulty && picked) return;
+                        // Charge this candidate the repeats it would actually accumulate,
+                        // its other rates' plays included. (Mindblock scales XP only, so for
+                        // a pp target this is a no-op and the pick is simply the best-scoring
+                        // map left.)
+                        const xp = adjustedXp(candidate.xp, {
+                                recentPlays: candidate.recentPlays + playsPerMap * (picked + 1), medalMultiplier,
+                        });
+                        const value = valueOf(xp, target, candidate);
+                        const score = rankingScore(
+                                { value, perSecond: value / (candidate.durationSec + overheadSec) },
+                                target,
+                        );
+                        if (score > bestRate) {
+                                bestRate = score;
+                                bestIndex = index;
+                        }
+                });
 
-		if (bestIndex < 0) break;
-		const [pick] = remaining.splice(bestIndex, 1);
-		if (!pick) break;
-		usedSets.add(pick.setId);
-		picks.set(pick.beatmapId, (picks.get(pick.beatmapId) ?? 0) + 1);
-		// Keep the map's own numbers for a pp target; only an XP rate is
-		// re-derived from the repeats charged above.
-		chosen.push(target.kind === 'pp' ? pick : { ...pick, perSecond: bestRate });
-	}
+                if (bestIndex < 0) break;
+                const [pick] = remaining.splice(bestIndex, 1);
+                if (!pick) break;
+                usedSets.add(pick.setId);
+                picks.set(pick.beatmapId, (picks.get(pick.beatmapId) ?? 0) + 1);
+                // Keep the map's own numbers for a pp target; only an XP rate is
+                // re-derived from the repeats charged above.
+                chosen.push(target.kind === 'pp' ? pick : { ...pick, perSecond: bestRate });
+        }
 
-	return chosen;
+        return chosen;
 };
 
 /**
@@ -302,16 +303,16 @@ const rotationAt = (
  * shown are the plays the playlist makes.
  */
 export const tableRows = (
-	ranked: readonly RankedMap[],
-	rotation: readonly RankedMap[],
+        ranked: readonly RankedMap[],
+        rotation: readonly RankedMap[],
 ): RankedMap[] => {
-	const picked = new Set(rotation.map(rowKey));
-	const inRotation = new Set(rotation.map(map => map.beatmapId));
-	const listed = new Set<number>();
-	return ranked.filter(map => {
-		const show = picked.has(rowKey(map))
-			|| (!inRotation.has(map.beatmapId) && !listed.has(map.beatmapId));
-		if (show) listed.add(map.beatmapId);
-		return show;
-	});
+        const picked = new Set(rotation.map(rowKey));
+        const inRotation = new Set(rotation.map(map => map.beatmapId));
+        const listed = new Set<number>();
+        return ranked.filter(map => {
+                const show = picked.has(rowKey(map))
+                        || (!inRotation.has(map.beatmapId) && !listed.has(map.beatmapId));
+                if (show) listed.add(map.beatmapId);
+                return show;
+        });
 };
